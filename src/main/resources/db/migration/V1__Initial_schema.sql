@@ -1,0 +1,3 @@
+-- Flyway migration V1: Initial schema for Payment Labeling Engine
+-- This migration will be implemented in Issue #2 (Database Schema Design)
+-- Placeholder for future implementation
