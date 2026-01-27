@@ -52,4 +52,38 @@ public class CsvImportResult {
     public void addError(String error) {
         errors.add(error);
     }
+
+    // Manually added getters and setters since Lombok is not working properly
+    public long getNewPaymentCount() {
+        return newPaymentCount;
+    }
+
+    public void setNewPaymentCount(long newPaymentCount) {
+        this.newPaymentCount = newPaymentCount;
+    }
+
+    public long getDuplicateCount() {
+        return duplicateCount;
+    }
+
+    public void setDuplicateCount(long duplicateCount) {
+        this.duplicateCount = duplicateCount;
+    }
+
+    public List<String> getErrors() {
+        return errors;
+    }
+
+    public void setErrors(List<String> errors) {
+        this.errors = errors;
+    }
+
+    public LocalDateTime getImportedAt() {
+        return importedAt;
+    }
+
+    public void setImportedAt(LocalDateTime importedAt) {
+        this.importedAt = importedAt;
+    }
 }
+

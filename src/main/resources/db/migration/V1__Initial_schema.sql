@@ -67,17 +67,17 @@ CREATE INDEX idx_payment_labels_label_id ON payment_labels(label_id);
 CREATE TABLE aggregates (
     id BIGSERIAL PRIMARY KEY,
     label_id BIGINT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
-    year INTEGER NOT NULL,
-    month INTEGER NOT NULL,
+    "year" INTEGER NOT NULL,
+    "month" INTEGER NOT NULL,
     total_amount NUMERIC(19, 2) NOT NULL,
     transaction_count BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_aggregate_unique UNIQUE (label_id, year, month),
-    CONSTRAINT chk_month_range CHECK (month >= 1 AND month <= 12),
-    CONSTRAINT chk_year_positive CHECK (year > 0)
+    CONSTRAINT uk_aggregate_unique UNIQUE (label_id, "year", "month"),
+    CONSTRAINT chk_month_range CHECK ("month" >= 1 AND "month" <= 12),
+    CONSTRAINT chk_year_positive CHECK ("year" > 0)
 );
 
 CREATE INDEX idx_aggregates_label_id ON aggregates(label_id);
-CREATE INDEX idx_aggregates_year ON aggregates(year);
-CREATE INDEX idx_aggregates_year_month ON aggregates(year, month);
+CREATE INDEX idx_aggregates_year ON aggregates("year");
+CREATE INDEX idx_aggregates_year_month ON aggregates("year", "month");

@@ -76,4 +76,228 @@ public class Payment {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    // Manually added getters and setters since Lombok is not working properly
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public LocalDate getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(LocalDate paymentDate) {
+        this.paymentDate = paymentDate;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getReference() {
+        return reference;
+    }
+
+    public void setReference(String reference) {
+        this.reference = reference;
+    }
+
+    public String getTransactionType() {
+        return transactionType;
+    }
+
+    public void setTransactionType(String transactionType) {
+        this.transactionType = transactionType;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public void setAccountNumber(String accountNumber) {
+        this.accountNumber = accountNumber;
+    }
+
+    public String getCounterpartyAccount() {
+        return counterpartyAccount;
+    }
+
+    public void setCounterpartyAccount(String counterpartyAccount) {
+        this.counterpartyAccount = counterpartyAccount;
+    }
+
+    public String getCounterpartyBank() {
+        return counterpartyBank;
+    }
+
+    public void setCounterpartyBank(String counterpartyBank) {
+        this.counterpartyBank = counterpartyBank;
+    }
+
+    public String getCounterpartyName() {
+        return counterpartyName;
+    }
+
+    public void setCounterpartyName(String counterpartyName) {
+        this.counterpartyName = counterpartyName;
+    }
+
+    public String getReceiverInfo() {
+        return receiverInfo;
+    }
+
+    public void setReceiverInfo(String receiverInfo) {
+        this.receiverInfo = receiverInfo;
+    }
+
+    public String getAdditionalInfo() {
+        return additionalInfo;
+    }
+
+    public void setAdditionalInfo(String additionalInfo) {
+        this.additionalInfo = additionalInfo;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    // Builder pattern
+    public static PaymentBuilder builder() {
+        return new PaymentBuilder();
+    }
+
+    public static class PaymentBuilder {
+        private Long id;
+        private LocalDate paymentDate;
+        private BigDecimal amount;
+        private String currency;
+        private String reference;
+        private String transactionType;
+        private String accountNumber;
+        private String counterpartyAccount;
+        private String counterpartyBank;
+        private String counterpartyName;
+        private String receiverInfo;
+        private String additionalInfo;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public PaymentBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public PaymentBuilder paymentDate(LocalDate paymentDate) {
+            this.paymentDate = paymentDate;
+            return this;
+        }
+
+        public PaymentBuilder amount(BigDecimal amount) {
+            this.amount = amount;
+            return this;
+        }
+
+        public PaymentBuilder currency(String currency) {
+            this.currency = currency;
+            return this;
+        }
+
+        public PaymentBuilder reference(String reference) {
+            this.reference = reference;
+            return this;
+        }
+
+        public PaymentBuilder transactionType(String transactionType) {
+            this.transactionType = transactionType;
+            return this;
+        }
+
+        public PaymentBuilder accountNumber(String accountNumber) {
+            this.accountNumber = accountNumber;
+            return this;
+        }
+
+        public PaymentBuilder counterpartyAccount(String counterpartyAccount) {
+            this.counterpartyAccount = counterpartyAccount;
+            return this;
+        }
+
+        public PaymentBuilder counterpartyBank(String counterpartyBank) {
+            this.counterpartyBank = counterpartyBank;
+            return this;
+        }
+
+        public PaymentBuilder counterpartyName(String counterpartyName) {
+            this.counterpartyName = counterpartyName;
+            return this;
+        }
+
+        public PaymentBuilder receiverInfo(String receiverInfo) {
+            this.receiverInfo = receiverInfo;
+            return this;
+        }
+
+        public PaymentBuilder additionalInfo(String additionalInfo) {
+            this.additionalInfo = additionalInfo;
+            return this;
+        }
+
+        public PaymentBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public PaymentBuilder updatedAt(LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
+        public Payment build() {
+            Payment payment = new Payment();
+            payment.id = this.id;
+            payment.paymentDate = this.paymentDate;
+            payment.amount = this.amount;
+            payment.currency = this.currency;
+            payment.reference = this.reference;
+            payment.transactionType = this.transactionType;
+            payment.accountNumber = this.accountNumber;
+            payment.counterpartyAccount = this.counterpartyAccount;
+            payment.counterpartyBank = this.counterpartyBank;
+            payment.counterpartyName = this.counterpartyName;
+            payment.receiverInfo = this.receiverInfo;
+            payment.additionalInfo = this.additionalInfo;
+            payment.createdAt = this.createdAt;
+            payment.updatedAt = this.updatedAt;
+            return payment;
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.paymentlabeling.service;
 
 import com.paymentlabeling.model.Payment;
+import com.paymentlabeling.repository.PaymentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

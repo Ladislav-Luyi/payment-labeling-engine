@@ -47,4 +47,38 @@ public class CsvParseResult {
         errors.add(error);
         this.success = false;
     }
+
+    // Manually added getters and setters since Lombok is not working properly
+    public List<Payment> getParsedPayments() {
+        return parsedPayments;
+    }
+
+    public void setParsedPayments(List<Payment> parsedPayments) {
+        this.parsedPayments = parsedPayments;
+    }
+
+    public int getSkippedDuplicates() {
+        return skippedDuplicates;
+    }
+
+    public void setSkippedDuplicates(int skippedDuplicates) {
+        this.skippedDuplicates = skippedDuplicates;
+    }
+
+    public List<String> getErrors() {
+        return errors;
+    }
+
+    public void setErrors(List<String> errors) {
+        this.errors = errors;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
 }
+
