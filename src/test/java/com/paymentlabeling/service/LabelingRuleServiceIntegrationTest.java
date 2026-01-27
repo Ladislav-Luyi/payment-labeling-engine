@@ -564,7 +564,8 @@ class LabelingRuleServiceIntegrationTest {
     @DisplayName("Should handle very long counterparty name in pattern matching")
     void testHandleLongCounterpartyNameInPatternMatching() {
         // Arrange
-        String longName = "A".repeat(500) + " KAUFLAND " + "B".repeat(500);
+        // Use a string that fits within the VARCHAR(255) limit but is still reasonably long
+        String longName = "A".repeat(100) + " KAUFLAND " + "B".repeat(100);  // Total ~210 chars, fits in VARCHAR(255)
         Payment paymentWithLongName = paymentRepository.save(Payment.builder()
             .paymentDate(LocalDate.of(2026, 1, 26))
             .amount(new BigDecimal("-99.99"))
