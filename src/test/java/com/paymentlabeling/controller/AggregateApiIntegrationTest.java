@@ -332,7 +332,7 @@ class AggregateApiIntegrationTest {
                 .param("year", "2026")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)));
+                .andExpect(jsonPath("$", hasSize(3)));
         }
 
         @Test
