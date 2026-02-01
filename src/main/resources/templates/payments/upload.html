@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="base :: head">
+    <title th:text="${pageTitle} + ' - Payment Labeling Engine'">Upload Payments - Payment Labeling Engine</title>
+</head>
+<body>
+    <div th:replace="base :: navbar"></div>
+
+    <div class="container mt-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/payments">Payments</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Upload</li>
+            </ol>
+        </nav>
+
+        <h1 th:text="${pageTitle}">Upload Payments</h1>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload CSV File</h5>
+                        <p class="card-text">Select a CSV file containing payment data to upload.</p>
+                        <form method="post" enctype="multipart/form-data" action="/api/payments/upload">
+                            <div class="mb-3">
+                                <input type="file" class="form-control" name="file" accept=".csv" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="base :: scripts"></div>
+</body>
+</html>

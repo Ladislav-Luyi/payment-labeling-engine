@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="base :: head">
+    <title th:text="${pageTitle} + ' - Payment Labeling Engine'">Payments - Payment Labeling Engine</title>
+</head>
+<body>
+    <div th:replace="base :: navbar"></div>
+
+    <div class="container mt-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Payments</li>
+            </ol>
+        </nav>
+
+        <h1 th:text="${pageTitle}">Payments</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <a href="/payments/upload" class="btn btn-primary">Upload CSV</a>
+            </div>
+            <div class="col-md-6">
+                <form class="d-flex" method="get" action="/payments">
+                    <input type="number" class="form-control me-2" name="labelId" th:value="${labelId}" placeholder="Label ID">
+                    <button class="btn btn-outline-primary" type="submit">Filter</button>
+                    <a href="/payments" class="btn btn-outline-secondary ms-2">Clear</a>
+                </form>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div th:if="${#lists.isEmpty(payments)}" class="alert alert-info">
+                    No payments found.
+                </div>
+                <div th:if="${not #lists.isEmpty(payments)}" class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Counterparty</th>
+                                <th>Description</th>
+                                <th>Labels</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="payment : ${payments}">
+                                <td th:text="${payment.payment.id}">1</td>
+                                <td th:text="${#temporals.format(payment.payment.paymentDate, 'yyyy-MM-dd')}">2023-01-01</td>
+                                <td th:text="${payment.payment.amount}">100.00</td>
+                                <td th:text="${payment.payment.counterpartyName}">Counterparty</td>
+                                <td th:text="${payment.payment.reference}">Description</td>
+                                <td>
+                                    <span th:each="label : ${payment.labels}" class="badge bg-secondary me-1" th:text="${label.name}">Label</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="base :: scripts"></div>
+</body>
+</html>

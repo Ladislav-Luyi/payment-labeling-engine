@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="base :: head">
+    <title th:text="${pageTitle} + ' - Payment Labeling Engine'">Aggregates - Payment Labeling Engine</title>
+</head>
+<body>
+    <div th:replace="base :: navbar"></div>
+
+    <div class="container mt-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Aggregates</li>
+            </ol>
+        </nav>
+
+        <h1 th:text="${pageTitle}">Aggregates</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <a href="/aggregates/add" class="btn btn-primary">Add New Aggregate</a>
+            </div>
+            <div class="col-md-6">
+                <form class="d-flex" method="get" action="/aggregates">
+                    <input type="number" class="form-control me-2" name="year" th:value="${year}" placeholder="Year">
+                    <input type="number" class="form-control me-2" name="month" th:value="${month}" placeholder="Month (1-12)">
+                    <input type="number" class="form-control me-2" name="labelId" th:value="${labelId}" placeholder="Label ID">
+                    <button class="btn btn-outline-primary" type="submit">Filter</button>
+                    <a href="/aggregates" class="btn btn-outline-secondary ms-2">Clear</a>
+                </form>
+            </div>
+        </div>
+
+        <!-- Success/Error Messages -->
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div th:if="${#lists.isEmpty(aggregates)}" class="alert alert-info">
+                    No aggregates found.
+                </div>
+                <div th:if="${not #lists.isEmpty(aggregates)}" class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Label</th>
+                                <th>Year</th>
+                                <th>Month</th>
+                                <th>Total Amount</th>
+                                <th>Transaction Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="aggregate : ${aggregates}">
+                                <td th:text="${aggregate.id}">1</td>
+                                <td th:text="${aggregate.label.name}">Label Name</td>
+                                <td th:text="${aggregate.year}">2023</td>
+                                <td th:text="${aggregate.month}">1</td>
+                                <td th:text="${aggregate.totalAmount}">1000.00</td>
+                                <td th:text="${aggregate.transactionCount}">10</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="base :: scripts"></div>
+</body>
+</html>
