@@ -2,6 +2,9 @@ package com.paymentlabeling.controller;
 
 import com.paymentlabeling.model.Label;
 import com.paymentlabeling.model.Payment;
+import com.paymentlabeling.service.CsvImportResult;
+import com.paymentlabeling.service.CsvParseResult;
+import com.paymentlabeling.service.CsvParserService;
 import com.paymentlabeling.service.LabelService;
 import com.paymentlabeling.service.PaymentLabelService;
 import com.paymentlabeling.service.PaymentService;
@@ -9,7 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 
@@ -19,12 +25,14 @@ public class PaymentLabelingController {
   private final PaymentService paymentService;
   private final PaymentLabelService paymentLabelService;
   private final LabelService labelService;
+  private final CsvParserService csvParserService;
 
   @Autowired
-  public PaymentLabelingController(PaymentService paymentService, PaymentLabelService paymentLabelService, LabelService labelService) {
+  public PaymentLabelingController(PaymentService paymentService, PaymentLabelService paymentLabelService, LabelService labelService, CsvParserService csvParserService) {
     this.paymentService = paymentService;
     this.paymentLabelService = paymentLabelService;
     this.labelService = labelService;
+    this.csvParserService = csvParserService;
   }
 
   @GetMapping
@@ -53,6 +61,35 @@ public class PaymentLabelingController {
     List<Payment> allPayments = paymentService.getAllPayments();
     var results = filterPaymentsByCounterpartyName(allPayments, query);
     return ResponseEntity.ok(buildPaymentsResponse(results));
+  }
+
+  @PostMapping("/upload")
+  public ResponseEntity<Map<String, Object>> uploadCsv(@RequestParam("file") MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      return ResponseEntity.badRequest().body(Map.of(
+          "success", false,
+          "message", "File is required"
+      ));
+    }
+
+    try {
+      // Parse the CSV file
+      CsvParseResult parseResult = csvParserService.parseCsv(file.getInputStream());
+
+      if (!parseResult.isSuccess() && parseResult.getParsedPayments().isEmpty()) {
+        return ResponseEntity.ok(buildImportErrorResponse(parseResult));
+      }
+
+      // Save payments with duplicate detection
+      CsvImportResult importResult = csvParserService.savePaymentsWithDuplicateDetection(parseResult.getParsedPayments());
+
+      return ResponseEntity.ok(buildImportSuccessResponse(importResult, parseResult));
+    } catch (IOException e) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+          "success", false,
+          "message", "Error processing file: " + e.getMessage()
+      ));
+    }
   }
 
   @PostMapping("/{paymentId}/labels/{labelId}")
@@ -314,5 +351,27 @@ public class PaymentLabelingController {
     dto.put("name", label.getName());
     dto.put("description", label.getDescription() != null ? label.getDescription() : "");
     return dto;
+  }
+
+  private Map<String, Object> buildImportSuccessResponse(CsvImportResult importResult, CsvParseResult parseResult) {
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("newPaymentCount", importResult.getNewPaymentCount());
+    response.put("duplicateCount", importResult.getDuplicateCount());
+    response.put("totalProcessed", importResult.getTotalProcessed());
+    response.put("errors", importResult.getErrors() != null ? importResult.getErrors() : new ArrayList<>());
+    response.put("importedAt", importResult.getImportedAt());
+    return response;
+  }
+
+  private Map<String, Object> buildImportErrorResponse(CsvParseResult parseResult) {
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("newPaymentCount", 0);
+    response.put("duplicateCount", parseResult.getSkippedDuplicates());
+    response.put("totalProcessed", parseResult.getSkippedDuplicates());
+    response.put("errors", parseResult.getErrors() != null ? parseResult.getErrors() : new ArrayList<>());
+    response.put("importedAt", LocalDateTime.now());
+    return response;
   }
 }
