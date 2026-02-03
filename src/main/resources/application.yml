@@ -13,7 +13,6 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQL10Dialect
         format_sql: true
         use_sql_comments: true
     show-sql: false

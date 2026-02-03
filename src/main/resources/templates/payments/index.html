@@ -2,6 +2,72 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head th:replace="base :: head">
     <title th:text="${pageTitle} + ' - Payment Labeling Engine'">Payments - Payment Labeling Engine</title>
+    <style>
+        .label-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-height: 32px;
+            align-items: center;
+        }
+
+        .label-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .label-badge:hover {
+            opacity: 0.8;
+        }
+
+        .label-badge .remove-label {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .label-badge .remove-label:hover {
+            opacity: 1;
+        }
+
+        .assign-label-btn {
+            padding: 4px 8px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .label-dropdown {
+            min-width: 150px;
+        }
+
+        .payment-row-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div th:replace="base :: navbar"></div>
@@ -21,10 +87,13 @@
                 <a href="/payments/upload" class="btn btn-primary">Upload CSV</a>
             </div>
             <div class="col-md-6">
-                <form class="d-flex" method="get" action="/payments">
-                    <input type="number" class="form-control me-2" name="labelId" th:value="${labelId}" placeholder="Label ID">
+                <form class="d-flex gap-2" method="get" action="/payments">
+                    <select class="form-select" name="labelId" style="max-width: 200px;">
+                        <option value="">All Labels</option>
+                        <option th:each="label : ${allLabels}" th:value="${label.id}" th:text="${label.name}" th:selected="${labelId == label.id}">Label</option>
+                    </select>
                     <button class="btn btn-outline-primary" type="submit">Filter</button>
-                    <a href="/payments" class="btn btn-outline-secondary ms-2">Clear</a>
+                    <a href="/payments" class="btn btn-outline-secondary">Clear</a>
                 </form>
             </div>
         </div>
@@ -47,14 +116,41 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="payment : ${payments}">
+                            <tr th:each="payment : ${payments}" th:id="${'payment-row-' + payment.payment.id}">
                                 <td th:text="${payment.payment.id}">1</td>
                                 <td th:text="${#temporals.format(payment.payment.paymentDate, 'yyyy-MM-dd')}">2023-01-01</td>
                                 <td th:text="${payment.payment.amount}">100.00</td>
                                 <td th:text="${payment.payment.counterpartyName}">Counterparty</td>
                                 <td th:text="${payment.payment.reference}">Description</td>
                                 <td>
-                                    <span th:each="label : ${payment.labels}" class="badge bg-secondary me-1" th:text="${label.name}">Label</span>
+                                    <div class="payment-row-actions">
+                                        <div class="label-tags" th:id="${'labels-' + payment.payment.id}">
+                                            <span th:each="label : ${payment.labels}" 
+                                                  class="label-badge bg-secondary text-white"
+                                                  th:id="${'label-' + payment.payment.id + '-' + label.id}">
+                                                <span th:text="${label.name}">Label</span>
+                                                <span class="remove-label" data-label-id="" th:data-label-id="${label.id}">×</span>
+                                            </span>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary assign-label-btn dropdown-toggle" 
+                                                    type="button" 
+                                                    th:id="${'label-dropdown-' + payment.payment.id}"
+                                                    data-bs-toggle="dropdown" 
+                                                    aria-expanded="false">
+                                                + Add Label
+                                            </button>
+                                            <ul class="dropdown-menu label-dropdown" th:attr="aria-labelledby=${'label-dropdown-' + payment.payment.id}">
+                                                <li th:each="label : ${allLabels}" class="dropdown-item" 
+                                                    style="cursor: pointer;"
+                                                    th:onclick="${'assignLabel(' + payment.payment.id + ', ' + label.id + ')'}">
+                                                    <span th:text="${label.name}">Label Name</span>
+                                                </li>
+                                                <li th:if="${#lists.isEmpty(allLabels)}" class="dropdown-item disabled">No labels available</li>
+                                            </ul>
+                                        </div>
+                                        <div class="loading-spinner" th:id="${'spinner-' + payment.payment.id}"></div>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -65,5 +161,92 @@
     </div>
 
     <div th:replace="base :: scripts"></div>
+
+    <script>
+        function assignLabel(paymentId, labelId) {
+            // Find the dropdown to hide it
+            const dropdownElement = document.getElementById('label-dropdown-' + paymentId);
+            const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownElement);
+            if (dropdownInstance) {
+                dropdownInstance.hide();
+            }
+
+            const spinner = document.getElementById('spinner-' + paymentId);
+            if (spinner) spinner.style.display = 'block';
+
+            fetch(`/api/payments/${paymentId}/labels/${labelId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.status === 409) {
+                    // Label already assigned
+                    alert('This label is already assigned to this payment');
+                    return null;
+                }
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    // Reload the page to show updated labels
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to assign label');
+            })
+            .finally(() => {
+                if (spinner) spinner.style.display = 'none';
+            });
+        }
+
+        function removeLabel(paymentId, labelId) {
+            if (!confirm('Are you sure you want to remove this label?')) {
+                return;
+            }
+
+            const spinner = document.getElementById('spinner-' + paymentId);
+            if (spinner) spinner.style.display = 'block';
+
+            fetch(`/api/payments/${paymentId}/labels/${labelId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                // Reload the page to show updated labels
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to remove label');
+            })
+            .finally(() => {
+                if (spinner) spinner.style.display = 'none';
+            });
+        }
+
+        // Add event listeners to remove buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const removeButtons = document.querySelectorAll('.remove-label');
+            removeButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const badge = this.closest('.label-badge');
+                    const labelIdText = badge.id; // Format: label-{paymentId}-{labelId}
+                    const parts = labelIdText.split('-');
+                    const paymentId = parts[1];
+                    const labelId = parts[2];
+                    removeLabel(paymentId, labelId);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

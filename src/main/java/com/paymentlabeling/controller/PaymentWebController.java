@@ -2,6 +2,7 @@ package com.paymentlabeling.controller;
 
 import com.paymentlabeling.model.Label;
 import com.paymentlabeling.model.Payment;
+import com.paymentlabeling.service.LabelService;
 import com.paymentlabeling.service.PaymentLabelService;
 import com.paymentlabeling.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ public class PaymentWebController {
     @Autowired
     private PaymentLabelService paymentLabelService;
 
+    @Autowired
+    private LabelService labelService;
+
     /**
      * GET /payments - Display payments page
      */
@@ -52,8 +56,12 @@ public class PaymentWebController {
                 .map(p -> new PaymentWithLabels(p, paymentLabelService.getLabelsForPayment(p)))
                 .toList();
 
+        // Get all available labels for the assignment dropdown
+        List<Label> allLabels = labelService.getAllLabels();
+
         model.addAttribute("pageTitle", "Payments");
         model.addAttribute("payments", paymentsWithLabels);
+        model.addAttribute("allLabels", allLabels);
         model.addAttribute("labelId", labelId);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
