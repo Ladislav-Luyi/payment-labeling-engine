@@ -149,6 +149,7 @@
                                                 <li th:if="${#lists.isEmpty(allLabels)}" class="dropdown-item disabled">No labels available</li>
                                             </ul>
                                         </div>
+                                        <button class="btn btn-sm btn-outline-info ms-2" title="Reload payment row" onclick="location.reload()">&#x21bb;</button>
                                         <div class="loading-spinner" th:id="${'spinner-' + payment.payment.id}"></div>
                                     </div>
                                 </td>
