@@ -143,7 +143,7 @@
                                             <ul class="dropdown-menu label-dropdown" th:attr="aria-labelledby=${'label-dropdown-' + payment.payment.id}">
                                                 <li th:each="label : ${allLabels}" class="dropdown-item" 
                                                     style="cursor: pointer;"
-                                                    th:attr="onclick='assignLabel(' + '[[${payment.payment.id}]]' + ',' + '[[${label.id}]]' + ')'">
+                                                    onclick="assignLabel([[${payment.payment.id}]], [[${label.id}]])">
                                                     <span th:text="${label.name}">Label Name</span>
                                                 </li>
                                                 <li th:if="${#lists.isEmpty(allLabels)}" class="dropdown-item disabled">No labels available</li>
