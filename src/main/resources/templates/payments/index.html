@@ -126,10 +126,13 @@
                                     <div class="payment-row-actions">
                                         <div class="label-tags" th:id="${'labels-' + payment.payment.id}">
                                             <span th:each="label : ${payment.labels}" 
-                                                  class="label-badge bg-secondary text-white"
+                                                  class="label-badge badge bg-secondary me-1 mb-1"
                                                   th:id="${'label-' + payment.payment.id + '-' + label.id}">
                                                 <span th:text="${label.name}">Label</span>
-                                                <span class="remove-label" data-label-id="" th:data-label-id="${label.id}">×</span>
+                                                <button type="button" class="btn-close btn-close-white remove-label ms-1"
+                                                        th:attr="onclick='removeLabel(' + ${payment.payment.id} + ',' + ${label.id} + ')'"
+                                                        style="font-size: 0.6rem; padding: 0.1rem;">
+                                                </button>
                                             </span>
                                         </div>
                                         <div class="dropdown">
@@ -143,7 +146,7 @@
                                             <ul class="dropdown-menu label-dropdown" th:attr="aria-labelledby=${'label-dropdown-' + payment.payment.id}">
                                                 <li th:each="label : ${allLabels}" class="dropdown-item" 
                                                     style="cursor: pointer;"
-                                                    th:attr="onclick='assignLabel(' + ${payment.payment.id} + ',' + ${label.id} + ')'">
+                                                    th:attr="onclick='assignLabel(' + ${payment.payment.id} + ',' + ${label.id} + ',\'' + ${label.name} + '\')'">
                                                     <span th:text="${label.name}">Label Name</span>
                                                 </li>
                                                 <li th:if="${#lists.isEmpty(allLabels)}" class="dropdown-item disabled">No labels available</li>
@@ -164,7 +167,7 @@
     <div th:replace="base :: scripts"></div>
 
     <script>
-        function assignLabel(paymentId, labelId) {
+        function assignLabel(paymentId, labelId, labelName) {
             // Find the dropdown to hide it
             const dropdownElement = document.getElementById('label-dropdown-' + paymentId);
             const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownElement);
@@ -192,8 +195,8 @@
             })
             .then(data => {
                 if (data) {
-                    // Reload the page to show updated labels
-                    location.reload();
+                    // Update UI dynamically instead of reloading
+                    addLabelBadgeToDOM(paymentId, labelId, labelName);
                 }
             })
             .catch(error => {
@@ -203,6 +206,29 @@
             .finally(() => {
                 if (spinner) spinner.style.display = 'none';
             });
+        }
+
+        function addLabelBadgeToDOM(paymentId, labelId, labelName) {
+            const labelsContainer = document.getElementById('labels-' + paymentId);
+            if (!labelsContainer) return;
+
+            // Check if label already exists
+            const existingBadge = document.getElementById('label-' + paymentId + '-' + labelId);
+            if (existingBadge) return;
+
+            // Create new badge
+            const badge = document.createElement('span');
+            badge.className = 'label-badge badge bg-secondary me-1 mb-1';
+            badge.id = 'label-' + paymentId + '-' + labelId;
+            badge.innerHTML = `
+                ${labelName}
+                <button type="button" class="btn-close btn-close-white remove-label ms-1"
+                        onclick="removeLabel(${paymentId}, ${labelId})"
+                        style="font-size: 0.6rem; padding: 0.1rem;">
+                </button>
+            `;
+
+            labelsContainer.appendChild(badge);
         }
 
         function removeLabel(paymentId, labelId) {
@@ -221,8 +247,8 @@
             })
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
-                // Reload the page to show updated labels
-                location.reload();
+                // Remove badge from DOM instead of reloading
+                removeLabelBadgeFromDOM(paymentId, labelId);
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -233,21 +259,12 @@
             });
         }
 
-        // Add event listeners to remove buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            const removeButtons = document.querySelectorAll('.remove-label');
-            removeButtons.forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const badge = this.closest('.label-badge');
-                    const labelIdText = badge.id; // Format: label-{paymentId}-{labelId}
-                    const parts = labelIdText.split('-');
-                    const paymentId = parts[1];
-                    const labelId = parts[2];
-                    removeLabel(paymentId, labelId);
-                });
-            });
-        });
+        function removeLabelBadgeFromDOM(paymentId, labelId) {
+            const badge = document.getElementById('label-' + paymentId + '-' + labelId);
+            if (badge) {
+                badge.remove();
+            }
+        }
     </script>
 </body>
 </html>
