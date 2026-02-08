@@ -1,23 +1,19 @@
 package com.paymentlabeling.controller;
 
 import com.paymentlabeling.model.Aggregate;
-import com.paymentlabeling.model.Label;
+import com.paymentlabeling.model.Payment;
 import com.paymentlabeling.service.AggregateService;
-import com.paymentlabeling.service.LabelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
  * Web Controller for Aggregate & Reporting pages
+ * Handles display and management of aggregates grouped by label sets
  */
 @Controller
 @RequestMapping("/aggregates")
@@ -26,11 +22,8 @@ public class AggregateWebController {
     @Autowired
     private AggregateService aggregateService;
 
-    @Autowired
-    private LabelService labelService;
-
     /**
-     * GET /aggregates - Display aggregates page
+     * GET /aggregates - Display aggregates page with filtering options
      */
     @GetMapping
     public String listAggregates(
@@ -39,14 +32,16 @@ public class AggregateWebController {
             @RequestParam(required = false) Long labelId,
             Model model) {
 
-        // Similar logic to REST controller, but for web
         List<Aggregate> aggregates;
 
-        if (year != null && month != null && labelId != null) {
-            aggregates = aggregateService.getAggregateByLabelYearMonth(labelId, year, month)
-                    .map(List::of).orElse(List.of());
-        } else if (year != null && month != null) {
+        if (year != null && month != null) {
             aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
+            if (labelId != null) {
+                // Filter aggregates that contain the specified label
+                aggregates = aggregates.stream()
+                        .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
+                        .toList();
+            }
         } else if (year != null) {
             aggregates = aggregateService.getAggregatesByYear(year);
         } else if (labelId != null) {
@@ -65,47 +60,59 @@ public class AggregateWebController {
     }
 
     /**
-     * GET /aggregates/add - Display add aggregate form
+     * GET /aggregates/:id - Display aggregate details with expandable payments
+     */
+    @GetMapping("/{id}")
+    public String viewAggregate(@PathVariable Long id, Model model) {
+        return aggregateService.getAggregateById(id)
+                .map(aggregate -> {
+                    List<Payment> payments = aggregateService.getPaymentsForAggregate(id);
+                    model.addAttribute("aggregate", aggregate);
+                    model.addAttribute("payments", payments);
+                    model.addAttribute("pageTitle", "Aggregate Details");
+                    return "aggregates/details";
+                })
+                .orElseThrow(() -> new RuntimeException("Aggregate not found with ID: " + id));
+    }
+
+    /**
+     * POST /aggregates/recalculate - Recalculate all aggregates from payment data
+     */
+    @PostMapping("/recalculate")
+    public String recalculateAggregates(RedirectAttributes redirectAttributes) {
+        try {
+            aggregateService.recalculateAggregates();
+            redirectAttributes.addFlashAttribute("success", "Aggregates recalculated successfully.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to recalculate aggregates: " + e.getMessage());
+        }
+        return "redirect:/aggregates";
+    }
+
+    /**
+     * GET /aggregates/add - Display add aggregate form (kept for potential future use)
      */
     @GetMapping("/add")
     public String showAddForm(Model model) {
-        List<Label> labels = labelService.getAllLabels();
-        model.addAttribute("pageTitle", "Add Aggregate");
-        model.addAttribute("labels", labels);
+        model.addAttribute("pageTitle", "Manual Aggregate Creation");
         return "aggregates/add";
     }
 
     /**
-     * POST /aggregates - Create new aggregate
+     * POST /aggregates - Create new aggregate manually
      */
     @PostMapping
     public String createAggregate(
-            @RequestParam Long labelId,
             @RequestParam Integer year,
             @RequestParam Integer month,
-            @RequestParam BigDecimal totalAmount,
-            @RequestParam Long transactionCount,
             RedirectAttributes redirectAttributes) {
 
         try {
-            Label label = labelService.getLabelById(labelId);
-            if (label == null) {
-                redirectAttributes.addFlashAttribute("error", "Invalid label selected.");
-                return "redirect:/aggregates/add";
-            }
-
-            Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(label);
-            aggregate.setYear(year);
-            aggregate.setMonth(month);
-            aggregate.setTotalAmount(totalAmount);
-            aggregate.setTransactionCount(transactionCount);
-
-            aggregateService.saveAggregate(aggregate);
-            redirectAttributes.addFlashAttribute("success", "Aggregate created successfully.");
+            // Aggregates are now calculated automatically from payment labels
+            // This endpoint is kept for potential manual creation if needed
+            redirectAttributes.addFlashAttribute("info", "Aggregates are calculated automatically from payment labels. Use 'Recalculate' to refresh.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to create aggregate: " + e.getMessage());
-            return "redirect:/aggregates/add";
         }
 
         return "redirect:/aggregates";

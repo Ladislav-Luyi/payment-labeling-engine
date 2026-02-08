@@ -18,13 +18,16 @@
 
         <div class="row mb-4">
             <div class="col-md-6">
-                <a href="/aggregates/add" class="btn btn-primary">Add New Aggregate</a>
+                <form method="post" action="/aggregates/recalculate" style="display: inline;">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-arrow-clockwise"></i> Recalculate Aggregates
+                    </button>
+                </form>
             </div>
             <div class="col-md-6">
                 <form class="d-flex" method="get" action="/aggregates">
                     <input type="number" class="form-control me-2" name="year" th:value="${year}" placeholder="Year">
                     <input type="number" class="form-control me-2" name="month" th:value="${month}" placeholder="Month (1-12)">
-                    <input type="number" class="form-control me-2" name="labelId" th:value="${labelId}" placeholder="Label ID">
                     <button class="btn btn-outline-primary" type="submit">Filter</button>
                     <a href="/aggregates" class="btn btn-outline-secondary ms-2">Clear</a>
                 </form>
@@ -40,40 +43,110 @@
             <span th:text="${error}"></span>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        <div th:if="${info}" class="alert alert-info alert-dismissible fade show" role="alert">
+            <span th:text="${info}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
 
         <div class="row">
             <div class="col-md-12">
                 <div th:if="${#lists.isEmpty(aggregates)}" class="alert alert-info">
-                    No aggregates found.
+                    No aggregates found. Click "Recalculate Aggregates" to generate aggregates from payment labels.
                 </div>
-                <div th:if="${not #lists.isEmpty(aggregates)}" class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Label</th>
-                                <th>Year</th>
-                                <th>Month</th>
-                                <th>Total Amount</th>
-                                <th>Transaction Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="aggregate : ${aggregates}">
-                                <td th:text="${aggregate.id}">1</td>
-                                <td th:text="${aggregate.label.name}">Label Name</td>
-                                <td th:text="${aggregate.year}">2023</td>
-                                <td th:text="${aggregate.month}">1</td>
-                                <td th:text="${aggregate.totalAmount}">1000.00</td>
-                                <td th:text="${aggregate.transactionCount}">10</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div th:if="${not #lists.isEmpty(aggregates)}" class="accordion" id="aggregatesAccordion">
+                    <div class="accordion-item" th:each="aggregate, stat : ${aggregates}">
+                        <h2 class="accordion-header" th:id="'heading' + ${aggregate.id}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" th:attr="data-bs-target='#collapse' + ${aggregate.id}">
+                                <div class="flex-grow-1">
+                                    <div>
+                                        <strong>Month:</strong> <span th:text="${aggregate.month}">1</span>/<span th:text="${aggregate.year}">2023</span>
+                                        &nbsp;&nbsp;
+                                        <strong>Labels:</strong>
+                                        <span th:each="label, iterStat : ${aggregate.labelsSorted}">
+                                            <span class="badge bg-secondary" th:text="${label.name}">Label</span><span th:unless="${iterStat.last}">&nbsp;</span>
+                                        </span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <strong>Total Amount:</strong> <span th:text="'€' + ${#numbers.formatDecimal(aggregate.totalAmount, 1, 2)}">€0.00</span>
+                                            &nbsp;&nbsp;
+                                            <strong>Transactions:</strong> <span th:text="${aggregate.transactionCount}">0</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div th:id="'collapse' + ${aggregate.id}" class="accordion-collapse collapse" th:attr="data-bs-parent='#aggregatesAccordion'">
+                            <div class="accordion-body">
+                                <!-- Payments table for this aggregate -->
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Payment ID</th>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Reference</th>
+                                                <th>Counterparty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Note: Payments will be loaded dynamically via AJAX -->
+                                            <tr>
+                                                <td colspan="5" class="text-center">
+                                                    <small class="text-muted">Click "Load Payments" to view detailed payment information</small>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-outline-primary" type="button" th:attr="onclick='loadPayments(' + ${aggregate.id} + ')'">
+                                        Load Payments
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <div th:replace="base :: scripts"></div>
+
+    <script>
+        function loadPayments(aggregateId) {
+            // Make AJAX call to fetch payments for this aggregate
+            fetch('/api/aggregates/' + aggregateId + '/payments')
+                .then(response => response.json())
+                .then(payments => {
+                    // Find the table body for this aggregate
+                    const tbody = document.querySelector('#collapse' + aggregateId + ' tbody');
+                    tbody.innerHTML = '';
+
+                    if (payments.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No payments found</td></tr>';
+                        return;
+                    }
+
+                    payments.forEach(payment => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${payment.id}</td>
+                            <td>${payment.paymentDate}</td>
+                            <td>€${parseFloat(payment.amount).toFixed(2)}</td>
+                            <td>${payment.reference || '-'}</td>
+                            <td>${payment.counterpartyName || '-'}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading payments:', error);
+                    alert('Failed to load payments');
+                });
+        }
+    </script>
 </body>
 </html>

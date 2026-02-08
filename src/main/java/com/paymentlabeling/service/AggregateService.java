@@ -1,12 +1,14 @@
 package com.paymentlabeling.service;
 
 import com.paymentlabeling.model.Aggregate;
+import com.paymentlabeling.model.Payment;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * Service interface for Aggregate operations (Issue #6)
- * Handles aggregation logic and reporting for payment data by label, month, and year
+ * Service interface for Aggregate operations
+ * Handles aggregation logic for payments grouped by label sets, month, and year
  */
 public interface AggregateService {
 
@@ -21,11 +23,6 @@ public interface AggregateService {
     List<Aggregate> getAllAggregates();
 
     /**
-     * Get aggregates by label ID
-     */
-    List<Aggregate> getAggregatesByLabel(Long labelId);
-
-    /**
      * Get aggregates by year
      */
     List<Aggregate> getAggregatesByYear(Integer year);
@@ -36,9 +33,14 @@ public interface AggregateService {
     List<Aggregate> getAggregatesByYearAndMonth(Integer year, Integer month);
 
     /**
-     * Get aggregate by label, year, and month
+     * Get aggregates that contain a specific label
      */
-    Optional<Aggregate> getAggregateByLabelYearMonth(Long labelId, Integer year, Integer month);
+    List<Aggregate> getAggregatesByLabel(Long labelId);
+
+    /**
+     * Get an aggregate by its label set, year, and month
+     */
+    Optional<Aggregate> getAggregateByLabelSetYearMonth(Set<Long> labelIds, Integer year, Integer month);
 
     /**
      * Save or update an aggregate
@@ -51,8 +53,28 @@ public interface AggregateService {
     void deleteAggregate(Long id);
 
     /**
-     * Calculate aggregates from payments for a specific label, month, and year
-     * This would be called to generate aggregates from payment data
+     * Recalculate all aggregates based on payment labels
+     * This scans all payments and creates/updates aggregates based on their label combinations
      */
-    Aggregate calculateAndSaveAggregate(Long labelId, Integer year, Integer month);
+    void recalculateAggregates();
+
+    /**
+     * Get payments for a specific aggregate
+     */
+    List<Payment> getPaymentsForAggregate(Long aggregateId);
+
+    /**
+     * Add a payment to an aggregate
+     */
+    void addPaymentToAggregate(Long aggregateId, Long paymentId);
+
+    /**
+     * Remove a payment from an aggregate
+     */
+    void removePaymentFromAggregate(Long aggregateId, Long paymentId);
+
+    /**
+     * Calculate aggregates for a specific payment (may belong to multiple aggregates)
+     */
+    void calculateAggregatesForPayment(Long paymentId);
 }

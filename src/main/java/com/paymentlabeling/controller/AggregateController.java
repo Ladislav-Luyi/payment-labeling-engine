@@ -1,6 +1,7 @@
 package com.paymentlabeling.controller;
 
 import com.paymentlabeling.model.Aggregate;
+import com.paymentlabeling.model.Payment;
 import com.paymentlabeling.service.AggregateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -11,8 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * REST API Controller for Aggregate & Reporting endpoints (Issue #6)
+ * REST API Controller for Aggregate & Reporting endpoints
  * Provides endpoints for retrieving, filtering, and reporting on aggregated payment data
+ * Aggregates now represent groups of payments with the same label set for a given month/year
  */
 @RestController
 @RequestMapping("/api/aggregates")
@@ -26,7 +28,7 @@ public class AggregateController {
      * Query parameters:
      *   - year: Filter by year
      *   - month: Filter by month (requires year)
-     *   - labelId: Filter by label ID
+     *   - labelId: Filter by aggregates containing this label
      */
     @GetMapping
     public ResponseEntity<List<Aggregate>> getAggregates(
@@ -34,46 +36,33 @@ public class AggregateController {
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Long labelId) {
 
-        // Validate month parameter (if provided, year must also be provided)
         if (month != null && year == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        // Validate month is within valid range (1-12)
         if (month != null && (month < 1 || month > 12)) {
             return ResponseEntity.badRequest().build();
         }
 
         List<Aggregate> aggregates;
 
-        // Apply filters based on provided parameters
-        if (year != null && month != null && labelId != null) {
-            // Filter by label, year, and month
-            Optional<Aggregate> aggregate = aggregateService.getAggregateByLabelYearMonth(labelId, year, month);
-            aggregates = aggregate.map(List::of).orElse(List.of());
-        } else if (year != null && month != null) {
-            // Filter by year and month
+        if (year != null && month != null) {
             aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
             if (labelId != null) {
-                // Further filter by label
                 aggregates = aggregates.stream()
-                    .filter(a -> a.getLabel().getId().equals(labelId))
+                    .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
                     .toList();
             }
         } else if (year != null) {
-            // Filter by year
             aggregates = aggregateService.getAggregatesByYear(year);
             if (labelId != null) {
-                // Further filter by label
                 aggregates = aggregates.stream()
-                    .filter(a -> a.getLabel().getId().equals(labelId))
+                    .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
                     .toList();
             }
         } else if (labelId != null) {
-            // Filter by label only
             aggregates = aggregateService.getAggregatesByLabel(labelId);
         } else {
-            // No filters, return all
             aggregates = aggregateService.getAllAggregates();
         }
 
@@ -88,6 +77,29 @@ public class AggregateController {
         Optional<Aggregate> aggregate = aggregateService.getAggregateById(id);
         return aggregate.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * GET /api/aggregates/{id}/payments - Get all payments for a specific aggregate
+     */
+    @GetMapping("/{id}/payments")
+    public ResponseEntity<List<Payment>> getPaymentsForAggregate(@PathVariable Long id) {
+        List<Payment> payments = aggregateService.getPaymentsForAggregate(id);
+        return ResponseEntity.ok(payments);
+    }
+
+    /**
+     * POST /api/aggregates/recalculate - Recalculate all aggregates from payment data
+     */
+    @PostMapping("/recalculate")
+    public ResponseEntity<String> recalculateAggregates() {
+        try {
+            aggregateService.recalculateAggregates();
+            return ResponseEntity.ok("{\"message\": \"Aggregates recalculated successfully\"}");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"" + e.getMessage() + "\"}");
+        }
     }
 
     /**
@@ -167,60 +179,6 @@ public class AggregateController {
     }
 
     /**
-     * GET /api/aggregates/summary/yearly - Get yearly summary
-     * Query parameters:
-     *   - year: Filter by year (optional)
-     */
-    @GetMapping("/summary/yearly")
-    public ResponseEntity<List<Aggregate>> getYearlySummary(
-            @RequestParam(required = false) Integer year) {
-
-        List<Aggregate> aggregates;
-
-        if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
-        } else {
-            aggregates = aggregateService.getAllAggregates();
-        }
-
-        // Group by year (all results should have same year if year param provided)
-        return ResponseEntity.ok(aggregates);
-    }
-
-    /**
-     * GET /api/aggregates/stats - Get label statistics for a period
-     * Query parameters:
-     *   - year: Year (required)
-     *   - month: Month (optional)
-     */
-    @GetMapping("/stats")
-    public ResponseEntity<List<Aggregate>> getStatistics(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
-
-        // Validate parameters
-        if (month != null && year == null) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if (month != null && (month < 1 || month > 12)) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<Aggregate> aggregates;
-
-        if (year != null && month != null) {
-            aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
-        } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
-        } else {
-            aggregates = aggregateService.getAllAggregates();
-        }
-
-        return ResponseEntity.ok(aggregates);
-    }
-
-    /**
      * GET /api/aggregates/export/csv - Export aggregates as CSV
      * Query parameters:
      *   - year: Filter by year (optional)
@@ -243,11 +201,11 @@ public class AggregateController {
 
         // Build CSV content
         StringBuilder csv = new StringBuilder();
-        csv.append("ID,Label,Year,Month,Total Amount,Transaction Count\n");
+        csv.append("ID,Labels,Year,Month,Total Amount,Transaction Count\n");
 
         for (Aggregate agg : aggregates) {
             csv.append(agg.getId()).append(",");
-            csv.append(agg.getLabel().getName()).append(",");
+            csv.append("\"").append(agg.getLabelNamesAsString()).append("\"").append(",");
             csv.append(agg.getYear()).append(",");
             csv.append(agg.getMonth()).append(",");
             csv.append(agg.getTotalAmount()).append(",");
@@ -258,34 +216,5 @@ public class AggregateController {
                 .header("Content-Disposition", "attachment; filename=aggregates.csv")
                 .header("Content-Type", "text/csv")
                 .body(csv.toString());
-    }
-
-    /**
-     * GET /api/aggregates/export/pdf - Export aggregates as PDF
-     * Query parameters:
-     *   - year: Filter by year (optional)
-     *   - month: Filter by month (optional)
-     */
-    @GetMapping("/export/pdf")
-    public ResponseEntity<String> exportAsPDF(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
-
-        List<Aggregate> aggregates;
-
-        if (year != null && month != null) {
-            aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
-        } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
-        } else {
-            aggregates = aggregateService.getAllAggregates();
-        }
-
-        // For now, return a placeholder response
-        // Full PDF implementation would use a library like iText or Apache PDFBox
-        return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=aggregates.pdf")
-                .header("Content-Type", "application/pdf")
-                .body("PDF Export - " + aggregates.size() + " aggregates");
     }
 }

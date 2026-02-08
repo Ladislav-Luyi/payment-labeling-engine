@@ -8,7 +8,7 @@ release.properties
 dependency-reduced-pom.xml
 .flattened-pom.xml
 *.swp
-
+data
 # IDE
 .idea/
 *.iml
