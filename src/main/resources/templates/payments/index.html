@@ -67,12 +67,16 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .table-success {
+            background-color: #d1e7dd;
+        }
     </style>
 </head>
 <body>
     <div th:replace="base :: navbar"></div>
 
-    <div class="container mt-4">
+    <div class="container mt-4" th:attr="data-mark-filter=${markFilter}">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
@@ -91,6 +95,11 @@
                     <select class="form-select" name="labelId" style="max-width: 200px;">
                         <option value="">All Labels</option>
                         <option th:each="label : ${allLabels}" th:value="${label.id}" th:text="${label.name}" th:selected="${labelId == label.id}">Label</option>
+                    </select>
+                    <select class="form-select" name="markFilter" style="max-width: 200px;">
+                        <option value="all" th:selected="${markFilter == 'all'}">All Payments</option>
+                        <option value="marked" th:selected="${markFilter == 'marked'}">Marked (has labels)</option>
+                        <option value="unmarked" th:selected="${markFilter == 'unmarked'}">Unmarked (no labels)</option>
                     </select>
                     <button class="btn btn-outline-primary" type="submit">Filter</button>
                     <a href="/payments" class="btn btn-outline-secondary">Clear</a>
@@ -116,7 +125,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="payment : ${payments}" th:id="${'payment-row-' + payment.payment.id}">
+                            <tr th:each="payment : ${payments}"
+                                th:id="${'payment-row-' + payment.payment.id}"
+                                th:classappend="${#lists.isEmpty(payment.labels)} ? '' : 'table-success'">
                                 <td th:text="${payment.payment.id}">1</td>
                                 <td th:text="${#temporals.format(payment.payment.paymentDate, 'yyyy-MM-dd')}">2023-01-01</td>
                                 <td th:text="${payment.payment.amount}">100.00</td>
@@ -152,7 +163,6 @@
                                                 <li th:if="${#lists.isEmpty(allLabels)}" class="dropdown-item disabled">No labels available</li>
                                             </ul>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-info ms-2" title="Reload payment row" onclick="location.reload()">&#x21bb;</button>
                                         <div class="loading-spinner" th:id="${'spinner-' + payment.payment.id}"></div>
                                     </div>
                                 </td>
@@ -229,6 +239,7 @@
             `;
 
             labelsContainer.appendChild(badge);
+            updateRowMarkedState(paymentId);
         }
 
         function removeLabel(paymentId, labelId) {
@@ -264,6 +275,31 @@
             if (badge) {
                 badge.remove();
             }
+            updateRowMarkedState(paymentId);
+        }
+
+        function updateRowMarkedState(paymentId) {
+            const row = document.getElementById('payment-row-' + paymentId);
+            const labelsContainer = document.getElementById('labels-' + paymentId);
+            if (!row || !labelsContainer) return;
+
+            const hasLabels = labelsContainer.querySelectorAll('.label-badge').length > 0;
+            row.classList.toggle('table-success', hasLabels);
+
+            const markFilter = getMarkFilter();
+            if (markFilter === 'marked' && !hasLabels) {
+                row.remove();
+                return;
+            }
+            if (markFilter === 'unmarked' && hasLabels) {
+                row.remove();
+            }
+        }
+
+        function getMarkFilter() {
+            const container = document.querySelector('.container.mt-4');
+            const value = container ? container.getAttribute('data-mark-filter') : 'all';
+            return value ? value.toLowerCase() : 'all';
         }
     </script>
 </body>

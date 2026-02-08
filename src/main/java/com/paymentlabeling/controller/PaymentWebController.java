@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Web Controller for Payment pages
@@ -40,21 +38,31 @@ public class PaymentWebController {
             @RequestParam(required = false) Long labelId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "all") String markFilter,
             Model model) {
 
         List<Payment> payments = paymentService.getAllPayments();
 
-        // Basic filtering, can be enhanced
-        if (labelId != null) {
-            payments = payments.stream()
-                    .filter(p -> paymentLabelService.getLabelsForPayment(p).stream().anyMatch(l -> l.getId().equals(labelId)))
-                    .toList();
-        }
-
-        // Add labels to each payment for the view
+        // Add labels to each payment for the view once.
         List<PaymentWithLabels> paymentsWithLabels = payments.stream()
                 .map(p -> new PaymentWithLabels(p, paymentLabelService.getLabelsForPayment(p)))
                 .toList();
+
+        if (labelId != null) {
+            paymentsWithLabels = paymentsWithLabels.stream()
+                    .filter(p -> p.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
+                    .toList();
+        }
+
+        if ("marked".equalsIgnoreCase(markFilter)) {
+            paymentsWithLabels = paymentsWithLabels.stream()
+                    .filter(p -> !p.getLabels().isEmpty())
+                    .toList();
+        } else if ("unmarked".equalsIgnoreCase(markFilter)) {
+            paymentsWithLabels = paymentsWithLabels.stream()
+                    .filter(p -> p.getLabels().isEmpty())
+                    .toList();
+        }
 
         // Get all available labels for the assignment dropdown
         List<Label> allLabels = labelService.getAllLabels();
@@ -65,6 +73,7 @@ public class PaymentWebController {
         model.addAttribute("labelId", labelId);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
+        model.addAttribute("markFilter", markFilter);
 
         return "payments/index";
     }
