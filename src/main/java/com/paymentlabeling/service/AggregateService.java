@@ -40,7 +40,7 @@ public interface AggregateService {
     /**
      * Get an aggregate by its label set, year, and month
      */
-    Optional<Aggregate> getAggregateByLabelSetYearMonth(Set<Long> labelIds, Integer year, Integer month);
+    Optional<Aggregate> getAggregateByLabelSetYearMonth(Set<Long> labelIds, Integer year, Integer month, Integer periodEndDay);
 
     /**
      * Save or update an aggregate
@@ -57,6 +57,8 @@ public interface AggregateService {
      * This scans all payments and creates/updates aggregates based on their label combinations
      */
     void recalculateAggregates();
+
+    void recalculateAggregates(Integer periodEndDay);
 
     /**
      * Get payments for a specific aggregate
@@ -77,4 +79,10 @@ public interface AggregateService {
      * Calculate aggregates for a specific payment (may belong to multiple aggregates)
      */
     void calculateAggregatesForPayment(Long paymentId);
+
+    List<Aggregate> getAggregatesByPeriodEndDay(Integer periodEndDay);
+
+    List<Aggregate> getAggregatesByYearAndPeriodEndDay(Integer year, Integer periodEndDay);
+
+    List<Aggregate> getAggregatesByYearAndMonthAndPeriodEndDay(Integer year, Integer month, Integer periodEndDay);
 }

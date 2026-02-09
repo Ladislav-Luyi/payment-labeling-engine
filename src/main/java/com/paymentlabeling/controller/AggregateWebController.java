@@ -30,24 +30,27 @@ public class AggregateWebController {
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Long labelId,
+            @RequestParam(required = false) Integer periodEndDay,
             Model model) {
 
         List<Aggregate> aggregates;
 
         if (year != null && month != null) {
-            aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
-            if (labelId != null) {
-                // Filter aggregates that contain the specified label
-                aggregates = aggregates.stream()
-                        .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
-                        .toList();
-            }
+            aggregates = aggregateService.getAggregatesByYearAndMonthAndPeriodEndDay(year, month, periodEndDay);
         } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
+            aggregates = aggregateService.getAggregatesByYearAndPeriodEndDay(year, periodEndDay);
+        } else if (periodEndDay != null) {
+            aggregates = aggregateService.getAggregatesByPeriodEndDay(periodEndDay);
         } else if (labelId != null) {
             aggregates = aggregateService.getAggregatesByLabel(labelId);
         } else {
             aggregates = aggregateService.getAllAggregates();
+        }
+
+        if (labelId != null) {
+            aggregates = aggregates.stream()
+                    .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
+                    .toList();
         }
 
         model.addAttribute("pageTitle", "Aggregates");
@@ -55,6 +58,7 @@ public class AggregateWebController {
         model.addAttribute("year", year);
         model.addAttribute("month", month);
         model.addAttribute("labelId", labelId);
+        model.addAttribute("periodEndDay", periodEndDay);
 
         return "aggregates/index";
     }
@@ -79,9 +83,11 @@ public class AggregateWebController {
      * POST /aggregates/recalculate - Recalculate all aggregates from payment data
      */
     @PostMapping("/recalculate")
-    public String recalculateAggregates(RedirectAttributes redirectAttributes) {
+    public String recalculateAggregates(
+            @RequestParam(required = false) Integer periodEndDay,
+            RedirectAttributes redirectAttributes) {
         try {
-            aggregateService.recalculateAggregates();
+            aggregateService.recalculateAggregates(periodEndDay);
             redirectAttributes.addFlashAttribute("success", "Aggregates recalculated successfully.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to recalculate aggregates: " + e.getMessage());

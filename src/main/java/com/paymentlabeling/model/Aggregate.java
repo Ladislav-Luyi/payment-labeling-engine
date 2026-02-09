@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +54,9 @@ public class Aggregate {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "period_end_day")
+    private Integer periodEndDay;
 
     @PrePersist
     protected void onCreate() {
@@ -123,6 +127,22 @@ public class Aggregate {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Integer getPeriodEndDay() {
+        return periodEndDay;
+    }
+
+    public void setPeriodEndDay(Integer periodEndDay) {
+        this.periodEndDay = periodEndDay;
+    }
+
+    public Integer getEffectivePeriodEndDay() {
+        if (periodEndDay == null || year == null || month == null) {
+            return null;
+        }
+        int maxDay = YearMonth.of(year, month).lengthOfMonth();
+        return Math.min(periodEndDay, maxDay);
     }
 
     /**

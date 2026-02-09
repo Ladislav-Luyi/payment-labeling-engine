@@ -34,7 +34,8 @@ public class AggregateController {
     public ResponseEntity<List<Aggregate>> getAggregates(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) Long labelId) {
+            @RequestParam(required = false) Long labelId,
+            @RequestParam(required = false) Integer periodEndDay) {
 
         if (month != null && year == null) {
             return ResponseEntity.badRequest().build();
@@ -44,26 +45,28 @@ public class AggregateController {
             return ResponseEntity.badRequest().build();
         }
 
+        if (periodEndDay != null && (periodEndDay < 1 || periodEndDay > 31)) {
+            return ResponseEntity.badRequest().build();
+        }
+
         List<Aggregate> aggregates;
 
         if (year != null && month != null) {
-            aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
-            if (labelId != null) {
-                aggregates = aggregates.stream()
-                    .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
-                    .toList();
-            }
+            aggregates = aggregateService.getAggregatesByYearAndMonthAndPeriodEndDay(year, month, periodEndDay);
         } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
-            if (labelId != null) {
-                aggregates = aggregates.stream()
-                    .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
-                    .toList();
-            }
+            aggregates = aggregateService.getAggregatesByYearAndPeriodEndDay(year, periodEndDay);
+        } else if (periodEndDay != null) {
+            aggregates = aggregateService.getAggregatesByPeriodEndDay(periodEndDay);
         } else if (labelId != null) {
             aggregates = aggregateService.getAggregatesByLabel(labelId);
         } else {
             aggregates = aggregateService.getAllAggregates();
+        }
+
+        if (labelId != null) {
+            aggregates = aggregates.stream()
+                .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
+                .toList();
         }
 
         return ResponseEntity.ok(aggregates);
@@ -92,9 +95,10 @@ public class AggregateController {
      * POST /api/aggregates/recalculate - Recalculate all aggregates from payment data
      */
     @PostMapping("/recalculate")
-    public ResponseEntity<String> recalculateAggregates() {
+    public ResponseEntity<String> recalculateAggregates(
+            @RequestParam(required = false) Integer periodEndDay) {
         try {
-            aggregateService.recalculateAggregates();
+            aggregateService.recalculateAggregates(periodEndDay);
             return ResponseEntity.ok("{\"message\": \"Aggregates recalculated successfully\"}");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -158,21 +162,25 @@ public class AggregateController {
     @GetMapping("/summary/monthly")
     public ResponseEntity<List<Aggregate>> getMonthlySummary(
             @RequestParam(required = false) Long labelId,
-            @RequestParam(required = false) Integer year) {
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer periodEndDay) {
 
         List<Aggregate> aggregates;
 
-        if (labelId != null) {
+        if (year != null) {
+            aggregates = aggregateService.getAggregatesByYearAndPeriodEndDay(year, periodEndDay);
+        } else if (periodEndDay != null) {
+            aggregates = aggregateService.getAggregatesByPeriodEndDay(periodEndDay);
+        } else if (labelId != null) {
             aggregates = aggregateService.getAggregatesByLabel(labelId);
-            if (year != null) {
-                aggregates = aggregates.stream()
-                    .filter(a -> a.getYear().equals(year))
-                    .toList();
-            }
-        } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
         } else {
             aggregates = aggregateService.getAllAggregates();
+        }
+
+        if (labelId != null) {
+            aggregates = aggregates.stream()
+                .filter(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(labelId)))
+                .toList();
         }
 
         return ResponseEntity.ok(aggregates);
@@ -187,14 +195,17 @@ public class AggregateController {
     @GetMapping("/export/csv")
     public ResponseEntity<String> exportAsCSV(
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer periodEndDay) {
 
         List<Aggregate> aggregates;
 
         if (year != null && month != null) {
-            aggregates = aggregateService.getAggregatesByYearAndMonth(year, month);
+            aggregates = aggregateService.getAggregatesByYearAndMonthAndPeriodEndDay(year, month, periodEndDay);
         } else if (year != null) {
-            aggregates = aggregateService.getAggregatesByYear(year);
+            aggregates = aggregateService.getAggregatesByYearAndPeriodEndDay(year, periodEndDay);
+        } else if (periodEndDay != null) {
+            aggregates = aggregateService.getAggregatesByPeriodEndDay(periodEndDay);
         } else {
             aggregates = aggregateService.getAllAggregates();
         }

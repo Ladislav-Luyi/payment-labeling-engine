@@ -18,8 +18,12 @@
 
         <div class="row mb-4">
             <div class="col-md-6">
-                <form method="post" action="/aggregates/recalculate" style="display: inline;">
-                    <button type="submit" class="btn btn-success">
+                <form method="post" action="/aggregates/recalculate" class="d-flex align-items-end" style="gap: 0.5rem;">
+                    <div>
+                        <label for="recalcPeriodEndDay" class="form-label mb-1">Period End Day</label>
+                        <input id="recalcPeriodEndDay" type="number" class="form-control" name="periodEndDay" th:value="${periodEndDay}" placeholder="1-31" min="1" max="31">
+                    </div>
+                    <button type="submit" class="btn btn-success mt-3">
                         <i class="bi bi-arrow-clockwise"></i> Recalculate Aggregates
                     </button>
                 </form>
@@ -28,6 +32,7 @@
                 <form class="d-flex" method="get" action="/aggregates">
                     <input type="number" class="form-control me-2" name="year" th:value="${year}" placeholder="Year">
                     <input type="number" class="form-control me-2" name="month" th:value="${month}" placeholder="Month (1-12)">
+                    <input type="number" class="form-control me-2" name="periodEndDay" th:value="${periodEndDay}" placeholder="Period End Day (1-31)" min="1" max="31">
                     <button class="btn btn-outline-primary" type="submit">Filter</button>
                     <a href="/aggregates" class="btn btn-outline-secondary ms-2">Clear</a>
                 </form>
@@ -60,6 +65,9 @@
                                 <div class="flex-grow-1">
                                     <div>
                                         <strong>Month:</strong> <span th:text="${aggregate.month}">1</span>/<span th:text="${aggregate.year}">2023</span>
+                                        <span th:if="${aggregate.periodEndDay != null}">
+                                            &nbsp;&nbsp;<strong>Period End Day:</strong> <span th:text="${aggregate.effectivePeriodEndDay}">15</span>
+                                        </span>
                                         &nbsp;&nbsp;
                                         <strong>Labels:</strong>
                                         <span th:each="label, iterStat : ${aggregate.labelsSorted}">
