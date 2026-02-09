@@ -39,6 +39,9 @@ public class LabelingRule {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "matching_field", nullable = false, length = 50)
+    private String matchingField;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -105,6 +108,14 @@ public class LabelingRule {
         this.description = description;
     }
 
+    public String getMatchingField() {
+        return matchingField;
+    }
+
+    public void setMatchingField(String matchingField) {
+        this.matchingField = matchingField;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -133,6 +144,7 @@ public class LabelingRule {
         private Label label;
         private Boolean isActive;
         private String description;
+        private String matchingField;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
@@ -166,6 +178,11 @@ public class LabelingRule {
             return this;
         }
 
+        public LabelingRuleBuilder matchingField(String matchingField) {
+            this.matchingField = matchingField;
+            return this;
+        }
+
         public LabelingRuleBuilder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -184,6 +201,7 @@ public class LabelingRule {
             rule.label = this.label;
             rule.isActive = this.isActive;
             rule.description = this.description;
+            rule.matchingField = this.matchingField;
             rule.createdAt = this.createdAt;
             rule.updatedAt = this.updatedAt;
             return rule;

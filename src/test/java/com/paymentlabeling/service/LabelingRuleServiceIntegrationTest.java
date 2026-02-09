@@ -88,6 +88,7 @@ class LabelingRuleServiceIntegrationTest {
             .label(groceryLabel)
             .isActive(true)
             .description("Matches Kaufland grocery store transactions")
+            .matchingField("counterpartyName")
             .build());
 
         parkingRule = labelingRuleRepository.save(LabelingRule.builder()
@@ -96,6 +97,7 @@ class LabelingRuleServiceIntegrationTest {
             .label(parkingLabel)
             .isActive(true)
             .description("Matches Hopin parking service transactions")
+            .matchingField("counterpartyName")
             .build());
 
         restaurantRule = labelingRuleRepository.save(LabelingRule.builder()
@@ -104,6 +106,7 @@ class LabelingRuleServiceIntegrationTest {
             .label(restaurantLabel)
             .isActive(true)
             .description("Matches restaurant and food service transactions")
+            .matchingField("counterpartyName")
             .build());
 
         // Create test payments
@@ -155,6 +158,7 @@ class LabelingRuleServiceIntegrationTest {
             .label(label)
             .isActive(true)
             .description("A test rule")
+            .matchingField("counterpartyName")
             .build();
 
         // Act
@@ -191,6 +195,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*INACTIVE.*")
             .label(groceryLabel)
             .isActive(false)
+            .matchingField("counterpartyName")
             .build());
 
         // Act
@@ -246,6 +251,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*TESCO.*")
             .label(groceryLabel)
             .isActive(true)
+            .matchingField("counterpartyName")
             .build());
 
         // Act
@@ -475,6 +481,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*KAUFLAND.*")
             .label(groceryLabel)
             .isActive(false)
+            .matchingField("counterpartyName")
             .build());
 
         // Act
@@ -499,6 +506,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*KAUFLAND.*")
             .label(restaurantLabel)  // Different label, same pattern
             .isActive(true)
+            .matchingField("counterpartyName")
             .build());
 
         List<LabelingRule> activeRules = labelingRuleService.getActiveRules();
@@ -527,6 +535,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("")
             .label(groceryLabel)
             .isActive(true)
+            .matchingField("counterpartyName")
             .build();
 
         // Act & Assert
@@ -549,6 +558,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*(\\$|€|£).*")  // Matches currency symbols
             .label(groceryLabel)
             .isActive(true)
+            .matchingField("counterpartyName")
             .build());
 
         String paymentInfo = "Amount: 100€ Payment";
@@ -704,6 +714,7 @@ class LabelingRuleServiceIntegrationTest {
             .regexPattern("(?i).*NEW.*")
             .label(restaurantLabel)
             .isActive(true)
+            .matchingField("counterpartyName")
             .build());
 
         Payment newPayment = paymentRepository.save(Payment.builder()
