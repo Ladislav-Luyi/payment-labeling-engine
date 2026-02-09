@@ -20,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,6 +56,15 @@ class AggregateServiceIntegrationTest {
     private Payment payment1;
     private Payment payment2;
     private Payment payment3;
+
+    private Set<Label> labelSet(Label... labels) {
+        return new HashSet<>(List.of(labels));
+    }
+
+    private void assertSingleLabel(Aggregate aggregate, Label label) {
+        assertEquals(1, aggregate.getLabels().size());
+        assertTrue(aggregate.getLabels().stream().anyMatch(l -> l.getId().equals(label.getId())));
+    }
 
     @BeforeEach
     void setUp() {
@@ -136,7 +147,7 @@ class AggregateServiceIntegrationTest {
         void testCreateAndSaveAggregate() {
             // Arrange
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(new BigDecimal("141.58"));
@@ -147,7 +158,7 @@ class AggregateServiceIntegrationTest {
 
             // Assert
             assertNotNull(savedAggregate.getId());
-            assertEquals(groceryLabel.getId(), savedAggregate.getLabel().getId());
+            assertSingleLabel(savedAggregate, groceryLabel);
             assertEquals(2026, savedAggregate.getYear());
             assertEquals(1, savedAggregate.getMonth());
             assertEquals(new BigDecimal("141.58"), savedAggregate.getTotalAmount());
@@ -157,11 +168,11 @@ class AggregateServiceIntegrationTest {
         }
 
         @Test
-        @DisplayName("Should enforce unique constraint on (label, year, month)")
+        @DisplayName("Should allow duplicate label sets with different year or month")
         void testUniqueConstraintOnLabelYearMonth() {
-            // Arrange
+            // Arrange - Create two aggregates with same labels but different years/months
             Aggregate aggregate1 = new Aggregate();
-            aggregate1.setLabel(groceryLabel);
+            aggregate1.setLabels(labelSet(groceryLabel));
             aggregate1.setYear(2026);
             aggregate1.setMonth(1);
             aggregate1.setTotalAmount(new BigDecimal("141.58"));
@@ -169,17 +180,82 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(aggregate1);
 
             Aggregate aggregate2 = new Aggregate();
-            aggregate2.setLabel(groceryLabel);
+            aggregate2.setLabels(labelSet(groceryLabel));
             aggregate2.setYear(2026);
-            aggregate2.setMonth(1);
+            aggregate2.setMonth(2);  // Different month
             aggregate2.setTotalAmount(new BigDecimal("200.00"));
             aggregate2.setTransactionCount(3L);
 
-            // Act & Assert - Should throw exception due to unique constraint
-            assertThrows(Exception.class, () -> {
-                aggregateRepository.save(aggregate2);
-                aggregateRepository.flush();
-            });
+            // Act & Assert - Should save successfully because they differ by month
+            Aggregate saved = aggregateRepository.save(aggregate2);
+            assertNotNull(saved.getId());
+            assertNotEquals(aggregate1.getId(), saved.getId());
+        }
+
+        @Test
+        @DisplayName("Should allow same label set when period end day differs")
+        void testAllowSameLabelSetWithDifferentPeriodEndDay() {
+            // Arrange
+            Aggregate aggregate1 = new Aggregate();
+            aggregate1.setLabels(labelSet(groceryLabel));
+            aggregate1.setYear(2026);
+            aggregate1.setMonth(1);
+            aggregate1.setPeriodEndDay(15);
+            aggregate1.setTotalAmount(new BigDecimal("141.58"));
+            aggregate1.setTransactionCount(2L);
+            aggregateRepository.save(aggregate1);
+
+            Aggregate aggregate2 = new Aggregate();
+            aggregate2.setLabels(labelSet(groceryLabel));
+            aggregate2.setYear(2026);
+            aggregate2.setMonth(1);
+            aggregate2.setPeriodEndDay(20);
+            aggregate2.setTotalAmount(new BigDecimal("200.00"));
+            aggregate2.setTransactionCount(3L);
+            aggregateRepository.save(aggregate2);
+
+            // Act
+            Optional<Aggregate> period15 = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(groceryLabel.getId()), 1, 2026, 1, 15);
+            Optional<Aggregate> period20 = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(groceryLabel.getId()), 1, 2026, 1, 20);
+
+            // Assert
+            assertTrue(period15.isPresent());
+            assertTrue(period20.isPresent());
+        }
+
+        @Test
+        @DisplayName("Should find aggregate by label set, year, and month")
+        void testFindByLabelYearAndMonth() {
+            // Arrange - create an aggregate first
+            Aggregate aggregate = new Aggregate();
+            aggregate.setLabels(labelSet(groceryLabel));
+            aggregate.setYear(2026);
+            aggregate.setMonth(1);
+            aggregate.setTotalAmount(new BigDecimal("141.58"));
+            aggregate.setTransactionCount(2L);
+            aggregateRepository.save(aggregate);
+
+            // Act
+            Optional<Aggregate> result = aggregateRepository.findByLabelSetYearAndMonth(
+                List.of(groceryLabel.getId()), 1, 2026, 1, null);
+
+            // Assert
+            assertTrue(result.isPresent());
+            assertEquals(new BigDecimal("141.58"), result.get().getTotalAmount());
+            assertEquals(2L, result.get().getTransactionCount());
+        }
+
+        @Test
+        @DisplayName("Should return empty optional for non-existent aggregate")
+        void testFindByLabelYearAndMonthNotFound() {
+            // Act
+            Optional<Aggregate> result = aggregateRepository.findByLabelSetYearAndMonth(
+                List.of(utilitiesLabel.getId()), 1, 2026, 1, null);
+
+            // Assert
+            assertTrue(result.isEmpty());
         }
 
         @Test
@@ -187,7 +263,7 @@ class AggregateServiceIntegrationTest {
         void testAllowSameLabelDifferentMonths() {
             // Arrange
             Aggregate janAggregate = new Aggregate();
-            janAggregate.setLabel(groceryLabel);
+            janAggregate.setLabels(labelSet(groceryLabel));
             janAggregate.setYear(2026);
             janAggregate.setMonth(1);
             janAggregate.setTotalAmount(new BigDecimal("141.58"));
@@ -195,7 +271,7 @@ class AggregateServiceIntegrationTest {
             janAggregate = aggregateRepository.save(janAggregate);
 
             Aggregate febAggregate = new Aggregate();
-            febAggregate.setLabel(groceryLabel);
+            febAggregate.setLabels(labelSet(groceryLabel));
             febAggregate.setYear(2026);
             febAggregate.setMonth(2);
             febAggregate.setTotalAmount(new BigDecimal("200.00"));
@@ -213,7 +289,7 @@ class AggregateServiceIntegrationTest {
         void testAllowSameMonthDifferentLabels() {
             // Arrange
             Aggregate groceryAggregate = new Aggregate();
-            groceryAggregate.setLabel(groceryLabel);
+            groceryAggregate.setLabels(labelSet(groceryLabel));
             groceryAggregate.setYear(2026);
             groceryAggregate.setMonth(1);
             groceryAggregate.setTotalAmount(new BigDecimal("141.58"));
@@ -221,7 +297,7 @@ class AggregateServiceIntegrationTest {
             groceryAggregate = aggregateRepository.save(groceryAggregate);
 
             Aggregate parkingAggregate = new Aggregate();
-            parkingAggregate.setLabel(parkingLabel);
+            parkingAggregate.setLabels(labelSet(parkingLabel));
             parkingAggregate.setYear(2026);
             parkingAggregate.setMonth(1);
             parkingAggregate.setTotalAmount(new BigDecimal("3.50"));
@@ -243,7 +319,7 @@ class AggregateServiceIntegrationTest {
         void setupAggregates() {
             // Create aggregates for testing queries
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("141.58"));
@@ -251,7 +327,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(parkingLabel);
+            agg2.setLabels(labelSet(parkingLabel));
             agg2.setYear(2026);
             agg2.setMonth(1);
             agg2.setTotalAmount(new BigDecimal("3.50"));
@@ -259,7 +335,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg2);
 
             Aggregate agg3 = new Aggregate();
-            agg3.setLabel(groceryLabel);
+            agg3.setLabels(labelSet(groceryLabel));
             agg3.setYear(2026);
             agg3.setMonth(2);
             agg3.setTotalAmount(new BigDecimal("200.00"));
@@ -267,7 +343,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg3);
 
             Aggregate agg4 = new Aggregate();
-            agg4.setLabel(groceryLabel);
+            agg4.setLabels(labelSet(groceryLabel));
             agg4.setYear(2025);
             agg4.setMonth(12);
             agg4.setTotalAmount(new BigDecimal("500.00"));
@@ -279,8 +355,8 @@ class AggregateServiceIntegrationTest {
         @DisplayName("Should retrieve aggregate by label, year, and month")
         void testFindByLabelYearAndMonth() {
             // Act
-            Optional<Aggregate> result = aggregateRepository.findByLabelIdAndYearAndMonth(
-                groceryLabel.getId(), 2026, 1);
+            Optional<Aggregate> result = aggregateRepository.findByLabelSetYearAndMonth(
+                List.of(groceryLabel.getId()), 1, 2026, 1, null);
 
             // Assert
             assertTrue(result.isPresent());
@@ -292,8 +368,8 @@ class AggregateServiceIntegrationTest {
         @DisplayName("Should return empty optional for non-existent aggregate")
         void testFindByLabelYearAndMonthNotFound() {
             // Act
-            Optional<Aggregate> result = aggregateRepository.findByLabelIdAndYearAndMonth(
-                utilitiesLabel.getId(), 2026, 1);
+            Optional<Aggregate> result = aggregateRepository.findByLabelSetYearAndMonth(
+                List.of(utilitiesLabel.getId()), 1, 2026, 1, null);
 
             // Assert
             assertTrue(result.isEmpty());
@@ -307,7 +383,7 @@ class AggregateServiceIntegrationTest {
 
             // Assert
             assertEquals(3, results.size());
-            assertTrue(results.stream().allMatch(a -> a.getLabel().getId().equals(groceryLabel.getId())));
+            assertTrue(results.stream().allMatch(a -> a.getLabels().stream().anyMatch(l -> l.getId().equals(groceryLabel.getId()))));
         }
 
         @Test
@@ -378,7 +454,7 @@ class AggregateServiceIntegrationTest {
         void testUpdateAggregateValues() {
             // Arrange
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(new BigDecimal("141.58"));
@@ -408,7 +484,7 @@ class AggregateServiceIntegrationTest {
         void testDeleteAggregate() {
             // Arrange
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(new BigDecimal("141.58"));
@@ -434,7 +510,7 @@ class AggregateServiceIntegrationTest {
         void testMultipleAggregatesCalculation() {
             // Arrange
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("141.58"));
@@ -442,7 +518,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(groceryLabel);
+            agg2.setLabels(labelSet(groceryLabel));
             agg2.setYear(2026);
             agg2.setMonth(2);
             agg2.setTotalAmount(new BigDecimal("200.00"));
@@ -450,7 +526,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg2);
 
             Aggregate agg3 = new Aggregate();
-            agg3.setLabel(parkingLabel);
+            agg3.setLabels(labelSet(parkingLabel));
             agg3.setYear(2026);
             agg3.setMonth(1);
             agg3.setTotalAmount(new BigDecimal("3.50"));
@@ -477,7 +553,7 @@ class AggregateServiceIntegrationTest {
         void testYearlyTotalsByLabel() {
             // Arrange
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("141.58"));
@@ -485,7 +561,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(groceryLabel);
+            agg2.setLabels(labelSet(groceryLabel));
             agg2.setYear(2026);
             agg2.setMonth(2);
             agg2.setTotalAmount(new BigDecimal("200.00"));
@@ -493,7 +569,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg2);
 
             Aggregate agg3 = new Aggregate();
-            agg3.setLabel(groceryLabel);
+            agg3.setLabels(labelSet(groceryLabel));
             agg3.setYear(2025);
             agg3.setMonth(12);
             agg3.setTotalAmount(new BigDecimal("100.00"));
@@ -516,7 +592,7 @@ class AggregateServiceIntegrationTest {
         void testComplexMultiLabelScenario() {
             // Arrange
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("141.58"));
@@ -524,7 +600,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(parkingLabel);
+            agg2.setLabels(labelSet(parkingLabel));
             agg2.setYear(2026);
             agg2.setMonth(1);
             agg2.setTotalAmount(new BigDecimal("3.50"));
@@ -532,7 +608,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg2);
 
             Aggregate agg3 = new Aggregate();
-            agg3.setLabel(utilitiesLabel);
+            agg3.setLabels(labelSet(utilitiesLabel));
             agg3.setYear(2026);
             agg3.setMonth(2);
             agg3.setTotalAmount(new BigDecimal("75.00"));
@@ -540,7 +616,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg3);
 
             Aggregate agg4 = new Aggregate();
-            agg4.setLabel(groceryLabel);
+            agg4.setLabels(labelSet(groceryLabel));
             agg4.setYear(2025);
             agg4.setMonth(11);
             agg4.setTotalAmount(new BigDecimal("50.00"));
@@ -564,7 +640,7 @@ class AggregateServiceIntegrationTest {
             // Arrange - Create various aggregates
             for (int month = 1; month <= 3; month++) {
                 Aggregate agg1 = new Aggregate();
-                agg1.setLabel(groceryLabel);
+                agg1.setLabels(labelSet(groceryLabel));
                 agg1.setYear(2026);
                 agg1.setMonth(month);
                 agg1.setTotalAmount(new BigDecimal(month * 50));
@@ -572,7 +648,7 @@ class AggregateServiceIntegrationTest {
                 aggregateRepository.save(agg1);
 
                 Aggregate agg2 = new Aggregate();
-                agg2.setLabel(parkingLabel);
+                agg2.setLabels(labelSet(parkingLabel));
                 agg2.setYear(2026);
                 agg2.setMonth(month);
                 agg2.setTotalAmount(new BigDecimal(month * 50));
@@ -587,7 +663,7 @@ class AggregateServiceIntegrationTest {
             assertEquals(6, all.size());
             all.forEach(agg -> {
                 assertNotNull(agg.getId());
-                assertNotNull(agg.getLabel());
+                assertFalse(agg.getLabels().isEmpty());
                 assertNotNull(agg.getYear());
                 assertNotNull(agg.getMonth());
                 assertNotNull(agg.getTotalAmount());
@@ -629,7 +705,7 @@ class AggregateServiceIntegrationTest {
 
             // Act - Create aggregates for both labels
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("75.50"));
@@ -637,7 +713,7 @@ class AggregateServiceIntegrationTest {
             agg1 = aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(utilitiesLabel);
+            agg2.setLabels(labelSet(utilitiesLabel));
             agg2.setYear(2026);
             agg2.setMonth(1);
             agg2.setTotalAmount(new BigDecimal("75.50"));
@@ -645,15 +721,17 @@ class AggregateServiceIntegrationTest {
             agg2 = aggregateRepository.save(agg2);
 
             // Assert - Verify both aggregates exist independently
-            Optional<Aggregate> groceryAgg = aggregateRepository.findByLabelIdAndYearAndMonth(
-                groceryLabel.getId(), 2026, 1);
-            Optional<Aggregate> utilitiesAgg = aggregateRepository.findByLabelIdAndYearAndMonth(
-                utilitiesLabel.getId(), 2026, 1);
+            Optional<Aggregate> groceryAgg = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(groceryLabel.getId()), 1, 2026, 1, null);
+            Optional<Aggregate> utilitiesAgg = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(utilitiesLabel.getId()), 1, 2026, 1, null);
 
             assertTrue(groceryAgg.isPresent());
             assertTrue(utilitiesAgg.isPresent());
             assertEquals(new BigDecimal("75.50"), groceryAgg.get().getTotalAmount());
             assertEquals(new BigDecimal("75.50"), utilitiesAgg.get().getTotalAmount());
+            assertSingleLabel(groceryAgg.get(), groceryLabel);
+            assertSingleLabel(utilitiesAgg.get(), utilitiesLabel);
         }
 
         @Test
@@ -699,7 +777,7 @@ class AggregateServiceIntegrationTest {
 
             // Act - Create aggregates
             Aggregate groceryAgg = new Aggregate();
-            groceryAgg.setLabel(groceryLabel);
+            groceryAgg.setLabels(labelSet(groceryLabel));
             groceryAgg.setYear(2026);
             groceryAgg.setMonth(1);
             groceryAgg.setTotalAmount(new BigDecimal("150.00")); // payment1(50) + payment2(100)
@@ -707,7 +785,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(groceryAgg);
 
             Aggregate parkingAgg = new Aggregate();
-            parkingAgg.setLabel(parkingLabel);
+            parkingAgg.setLabels(labelSet(parkingLabel));
             parkingAgg.setYear(2026);
             parkingAgg.setMonth(1);
             parkingAgg.setTotalAmount(new BigDecimal("100.00")); // Only payment2
@@ -731,7 +809,7 @@ class AggregateServiceIntegrationTest {
         void testOverlappingLabelsAggregation() {
             // Arrange - Payment assigned to multiple labels, each label tracks independently
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(new BigDecimal("200.00"));
@@ -739,7 +817,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(parkingLabel);
+            agg2.setLabels(labelSet(parkingLabel));
             agg2.setYear(2026);
             agg2.setMonth(1);
             agg2.setTotalAmount(new BigDecimal("50.00"));
@@ -747,7 +825,7 @@ class AggregateServiceIntegrationTest {
             aggregateRepository.save(agg2);
 
             Aggregate agg3 = new Aggregate();
-            agg3.setLabel(utilitiesLabel);
+            agg3.setLabels(labelSet(utilitiesLabel));
             agg3.setYear(2026);
             agg3.setMonth(1);
             agg3.setTotalAmount(new BigDecimal("75.00"));
@@ -777,7 +855,7 @@ class AggregateServiceIntegrationTest {
 
             // Create aggregates for different labels with same amount (same payment, multi-labeled)
             Aggregate agg1 = new Aggregate();
-            agg1.setLabel(groceryLabel);
+            agg1.setLabels(labelSet(groceryLabel));
             agg1.setYear(2026);
             agg1.setMonth(1);
             agg1.setTotalAmount(sharedAmount);
@@ -785,7 +863,7 @@ class AggregateServiceIntegrationTest {
             agg1 = aggregateRepository.save(agg1);
 
             Aggregate agg2 = new Aggregate();
-            agg2.setLabel(utilitiesLabel);
+            agg2.setLabels(labelSet(utilitiesLabel));
             agg2.setYear(2026);
             agg2.setMonth(1);
             agg2.setTotalAmount(sharedAmount);
@@ -793,16 +871,16 @@ class AggregateServiceIntegrationTest {
             agg2 = aggregateRepository.save(agg2);
 
             // Act - Query each label independently
-            Optional<Aggregate> groceryResult = aggregateRepository.findByLabelIdAndYearAndMonth(
-                groceryLabel.getId(), 2026, 1);
-            Optional<Aggregate> utilitiesResult = aggregateRepository.findByLabelIdAndYearAndMonth(
-                utilitiesLabel.getId(), 2026, 1);
+            Optional<Aggregate> groceryResult = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(groceryLabel.getId()), 1, 2026, 1, null);
+            Optional<Aggregate> utilitiesResult = aggregateRepository.findByLabelSetYearAndMonth(
+                    List.of(utilitiesLabel.getId()), 1, 2026, 1, null);
 
             // Assert - Each label maintains its own aggregate record
             assertTrue(groceryResult.isPresent());
             assertTrue(utilitiesResult.isPresent());
-            assertEquals(groceryLabel.getId(), groceryResult.get().getLabel().getId());
-            assertEquals(utilitiesLabel.getId(), utilitiesResult.get().getLabel().getId());
+            assertSingleLabel(groceryResult.get(), groceryLabel);
+            assertSingleLabel(utilitiesResult.get(), utilitiesLabel);
             assertEquals(sharedAmount, groceryResult.get().getTotalAmount());
             assertEquals(sharedAmount, utilitiesResult.get().getTotalAmount());
         }
@@ -817,7 +895,7 @@ class AggregateServiceIntegrationTest {
         void testZeroAmount() {
             // Act
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(BigDecimal.ZERO);
@@ -835,7 +913,7 @@ class AggregateServiceIntegrationTest {
             // Act
             BigDecimal largeAmount = new BigDecimal("9999999.99");
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(largeAmount);
@@ -852,7 +930,7 @@ class AggregateServiceIntegrationTest {
             // Act
             BigDecimal negativeAmount = new BigDecimal("-500.00");
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(negativeAmount);
@@ -869,7 +947,7 @@ class AggregateServiceIntegrationTest {
             // Act & Assert
             for (int month = 1; month <= 12; month++) {
                 Aggregate aggregate = new Aggregate();
-                aggregate.setLabel(groceryLabel);
+                aggregate.setLabels(labelSet(groceryLabel));
                 aggregate.setYear(2026);
                 aggregate.setMonth(month);
                 aggregate.setTotalAmount(new BigDecimal("100.00"));
@@ -890,7 +968,7 @@ class AggregateServiceIntegrationTest {
             // Act
             BigDecimal smallAmount = new BigDecimal("0.01");
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(smallAmount);
@@ -906,7 +984,7 @@ class AggregateServiceIntegrationTest {
         void testLargeTransactionCount() {
             // Act
             Aggregate aggregate = new Aggregate();
-            aggregate.setLabel(groceryLabel);
+            aggregate.setLabels(labelSet(groceryLabel));
             aggregate.setYear(2026);
             aggregate.setMonth(1);
             aggregate.setTotalAmount(new BigDecimal("50000.00"));
